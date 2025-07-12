@@ -3,6 +3,8 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response # Use Response for file downloads
 
+from fastapi.middleware.cors import CORSMiddleware
+
 from .models import ApplyRequest, ApplyResponse
 from .services import trigger_n8n_workflow, download_file_from_google_drive
 
@@ -11,6 +13,14 @@ from .services import trigger_n8n_workflow, download_file_from_google_drive
 N8N_WEBHOOK_URL = "http://localhost:5678/webhook/your-test-webhook"
 
 app = FastAPI(title="Auto-Apply MVP Backend")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins for now
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 
 @app.post("/apply", response_model=ApplyResponse)
 async def apply_for_job(request: ApplyRequest):
