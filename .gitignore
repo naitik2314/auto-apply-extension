@@ -1,0 +1,5 @@
+/.venv
+backend/app/__pycache__/main.cpython-311.pyc
+.gitignore
+backend/app/__pycache__/models.cpython-311.pyc
+backend/app/__pycache__/services.cpython-311.pyc
