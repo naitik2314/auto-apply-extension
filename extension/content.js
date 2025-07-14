@@ -1,86 +1,88 @@
-console.log("Auto-Apply MVP script v2 loaded!");
+// File: auto-apply-mvp/extension/content.js
+
+console.log("Auto-Apply MVP script v6 (All-In-One) loaded!");
+
+// --- HELPER FUNCTION ---
+// Waits for an element to appear on the page before we try to use it.
+function waitForElement(selector) {
+    return new Promise(resolve => {
+        const element = document.querySelector(selector);
+        if (element) {
+            return resolve(element);
+        }
+
+        const observer = new MutationObserver(mutations => {
+            const element = document.querySelector(selector);
+            if (element) {
+                resolve(element);
+                observer.disconnect();
+            }
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    });
+}
 
 // Create the button element
 const applyButton = document.createElement('button');
 applyButton.innerText = '🚀 Auto-Apply';
-
-// Instead of adding inline styles, we now add a CSS class.
-// The styling is handled by our style.css file, which is CSP-compliant.
 applyButton.className = 'auto-apply-button';
-
-// Add the button to the page's body
 document.body.appendChild(applyButton);
 
 // --- The Core Logic ---
-// This function runs when the button is clicked
 async function handleApplyClick() {
-    console.log("Apply button clicked! Starting scraping...");
+    console.log("Auto-Apply sequence initiated!");
 
-    // 1. Get the saved user profile from the extension's local storage
+    // 1. Get User Profile from storage
     const data = await chrome.storage.local.get('userProfile');
-    if (!data.userProfile || !data.userProfile.full_name) {
-        alert("Please save your profile in the extension popup first!");
+    if (!data.userProfile || !data.userProfile.phone) {
+        alert("Please save your profile (especially phone number) in the extension popup first!");
         return;
     }
+    const userProfile = data.userProfile;
 
-    // 2. Scrape REAL job details from the page using CSS selectors
-    // NOTE: These selectors are for LinkedIn and might need updating if they change their site.
-    // This tells the browser to find an element that has BOTH the 't-24' class AND the 'job-details-jobs-unified-top-card__job-title' class.
+    // 2. Scrape Job Details using YOUR proven selectors
+    console.log("Scraping job details from the main page...");
     const titleSelector = ".t-24.job-details-jobs-unified-top-card__job-title";
-
-    // These look correct already as they only have one class.
     const companySelector = ".job-details-jobs-unified-top-card__company-name";
     const descriptionSelector = ".job-details-about-the-job-module__description";
 
-    // The '?' is optional chaining: if an element isn't found, it returns 'undefined' instead of crashing.
     const title = document.querySelector(titleSelector)?.innerText.trim();
     const company = document.querySelector(companySelector)?.innerText.trim();
     const description = document.querySelector(descriptionSelector)?.innerText.trim();
 
-    // Validate that we actually found the key information
     if (!title || !company) {
-        alert("Could not find the job title or company on this page. Make sure you're on a LinkedIn job page.");
-        console.error("Scraping failed. Selectors might be outdated or you might not be on the right page.");
+        alert("Could not find job title or company. The page structure may have changed.");
         return;
     }
+    console.log(`Found job: ${title} at ${company}`);
+    // We can use the description later if needed, for now we just log it.
+    console.log(`Description found, length: ${description?.length || 0}`);
 
-    // Assemble the scraped data into an object
-    const jobDetails = {
-        title: title,
-        company: company,
-        description: description || "No description found.", // Use a fallback if description is missing
-        source_url: window.location.href
-    };
+    // 3. Find and Click the "Easy Apply" button
+    const easyApplyButtonSelector = ".jobs-apply-button";
+    const easyApplyButton = await waitForElement(easyApplyButtonSelector);
+    console.log("Found Easy Apply button, clicking...");
+    easyApplyButton.click();
 
-    // Combine user and job data into the final payload for our backend
-    const requestPayload = {
-        user_profile: data.userProfile,
-        job_details: jobDetails
-    };
+    // 4. Wait for the form and fill ONLY the phone number
+    console.log("Waiting for application form to load...");
+
+    // ACTION REQUIRED: Confirm this selector is correct for the phone input field.
+    const phoneInputSelector = "input[id*='phoneNumber']";
     
-    console.log("Sending REAL scraped data to the backend:", requestPayload);
-    alert("Check the console (Cmd+Option+J) to see the REAL data we're sending!");
+    const phoneInput = await waitForElement(phoneInputSelector);
+    console.log("Found phone field, filling...");
+    phoneInput.value = userProfile.phone;
+    
+    // Dispatch event to ensure the website recognizes the change.
+    phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
 
-    // 3. Call our backend API to trigger the resume generation
-    try {
-        const response = await fetch('http://127.0.0.1:8000/apply', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestPayload)
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        console.log("Backend response:", result);
-        alert(`Success! Backend confirmed receipt for job: ${jobDetails.title}`);
-
-    } catch (error) {
-        console.error("Error calling backend:", error);
-        alert("Failed to call the backend. Is it running in your terminal?");
-    }
+    console.log("Phone number auto-filling complete!");
+    alert("Phone number filled. Please review and proceed.");
 }
 
 // Attach the function to the button's click event
